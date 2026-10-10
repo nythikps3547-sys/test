@@ -2,26 +2,18 @@
 importScripts(
   "https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"
 );
+
 importScripts(
   "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"
 );
 
 firebase.initializeApp({
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDdyukNKzRKK5ku9eg7bQu205hB83cBNNE",
+  authDomain: "test-ae409.firebaseapp.com",
+  projectId: "test-ae409",
+  storageBucket: "test-ae409.firebasestorage.app",
+  messagingSenderId: "1072582076346",
+  appId: "1:1072582076346:web:b915818128de45d0fc5f83"
 });
 
 const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "Firebase Test";
-  const options = {
-    body: payload.notification?.body || "Push notification received!"
-  };
-
-  self.registration.showNotification(title, options);
-});
