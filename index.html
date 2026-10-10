@@ -1,0 +1,246 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firebase Push Notification Test</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px 14px;
+      font-family: Arial, sans-serif;
+      background: #101010;
+      color: #ffffff;
+    }
+
+    .card {
+      max-width: 520px;
+      margin: 35px auto;
+      padding: 24px;
+      background: #202020;
+      border: 1px solid #383838;
+      border-radius: 16px;
+    }
+
+    h1 {
+      font-size: 25px;
+    }
+
+    p {
+      line-height: 1.6;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin: 8px 0;
+      border: 0;
+      border-radius: 8px;
+      background: #238636;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    #status {
+      overflow-wrap: anywhere;
+      color: #f6d365;
+    }
+
+    #token {
+      padding: 12px;
+      background: #151515;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+      font-size: 12px;
+      user-select: text;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="card">
+    <h1>Firebase Push Test</h1>
+    <p>
+      Register this device to receive a test push notification.
+    </p>
+
+    <button id="enableButton">
+      Enable Notifications
+    </button>
+
+    <button id="copyButton" disabled>
+      Copy Device Token
+    </button>
+
+    <p id="status" role="status">
+      Waiting for you to enable notifications.
+    </p>
+
+    <p id="token">Your device token will appear here.</p>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
+
+  <script>
+    // Replace these values with your Firebase Web App config.
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Copy the PUBLIC Web Push certificate key from Firebase.
+    const vapidKey = "YOUR_PUBLIC_VAPID_KEY";
+
+    const statusElement = document.getElementById("status");
+    const tokenElement = document.getElementById("token");
+    const enableButton = document.getElementById("enableButton");
+    const copyButton = document.getElementById("copyButton");
+
+    let deviceToken = "";
+
+    try {
+      firebase.initializeApp(firebaseConfig);
+    } catch (error) {
+      statusElement.textContent =
+        "Firebase initialization failed: " + error.message;
+      enableButton.disabled = true;
+    }
+
+    let messaging = null;
+
+    try {
+      messaging = firebase.messaging();
+    } catch (error) {
+      statusElement.textContent =
+        "Firebase Messaging could not initialize: " + error.message;
+      enableButton.disabled = true;
+    }
+
+    enableButton.addEventListener("click", async () => {
+      enableButton.disabled = true;
+
+      try {
+        if (!messaging) {
+          throw new Error("Firebase Messaging is unavailable.");
+        }
+
+        if (!window.isSecureContext) {
+          throw new Error("Open the published HTTPS website.");
+        }
+
+        if (!("Notification" in window)) {
+          throw new Error("This browser does not support notifications.");
+        }
+
+        if (!("serviceWorker" in navigator)) {
+          throw new Error("Service workers are not supported.");
+        }
+
+        if (
+          firebaseConfig.apiKey.startsWith("YOUR_") ||
+          firebaseConfig.projectId.startsWith("YOUR_") ||
+          firebaseConfig.messagingSenderId.startsWith("YOUR_") ||
+          firebaseConfig.appId.startsWith("YOUR_") ||
+          vapidKey.startsWith("YOUR_")
+        ) {
+          throw new Error(
+            "Replace all Firebase and VAPID placeholders first."
+          );
+        }
+
+        statusElement.textContent =
+          "Requesting notification permission...";
+
+        const permission = await Notification.requestPermission();
+
+        if (permission !== "granted") {
+          throw new Error(
+            "Permission was not granted. Check browser site settings."
+          );
+        }
+
+        statusElement.textContent =
+          "Registering notification service worker...";
+
+        const registration = await navigator.serviceWorker.register(
+          "./firebase-messaging-sw.js"
+        );
+
+        await navigator.serviceWorker.ready;
+
+        statusElement.textContent = "Getting device token...";
+
+        deviceToken = await messaging.getToken({
+          vapidKey: vapidKey,
+          serviceWorkerRegistration: registration
+        });
+
+        if (!deviceToken) {
+          throw new Error(
+            "Firebase did not return a device token."
+          );
+        }
+
+        tokenElement.textContent = deviceToken;
+        copyButton.disabled = false;
+
+        statusElement.textContent =
+          "Success! Copy your token and send a test from Firebase Console.";
+
+      } catch (error) {
+        console.error("FCM registration error:", error);
+
+        statusElement.textContent =
+          "Error: " + error.message;
+
+      } finally {
+        enableButton.disabled = false;
+      }
+    });
+
+    copyButton.addEventListener("click", async () => {
+      if (!deviceToken) {
+        statusElement.textContent =
+          "Enable notifications and get a token first.";
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(deviceToken);
+        statusElement.textContent = "Device token copied!";
+      } catch (error) {
+        statusElement.textContent =
+          "Copy failed. Select the token text and copy it manually.";
+      }
+    });
+
+    if (messaging) {
+      messaging.onMessage((payload) => {
+        const title =
+          payload.notification?.title || "Firebase message";
+
+        const body =
+          payload.notification?.body || "A message was received.";
+
+        statusElement.textContent = "Received: " + title + " — " + body;
+      });
+    }
+  </script>
+</body>
+</html>
